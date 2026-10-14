@@ -8784,8 +8784,9 @@ function renderContextWindow(userText = els.input?.value || '') {
     const action = contextScope.mode === CONTEXT_SCOPE_MODES.CHAT_ONLY
       ? null
       : explicitSiteCaptureAction(pc);
-    els.explicitSiteCaptureWrap.hidden = !action || settings.gmailCaptureEnabled === true || settings.gmailCaptureHidden === true;
-    els.explicitSiteCaptureButton.hidden = !action;
+    const captureEnabled = settings.gmailCaptureEnabled === true;
+    els.explicitSiteCaptureWrap.hidden = !action || captureEnabled || settings.gmailCaptureHidden === true;
+    els.explicitSiteCaptureButton.hidden = !action || captureEnabled;
     if (action) {
       els.explicitSiteCaptureButton.querySelector('strong').textContent = translateUiText(action.label);
       els.explicitSiteCaptureButton.querySelector('span').textContent = translateUiText(action.description);
@@ -18895,11 +18896,16 @@ async function getPageContextViaScripting(tabId, options, originalError) {
 }
 
 async function persistGmailCaptureEnabled(enabled) {
+  const desired = enabled === true;
   const stored = await browserApi.storage.local.get('hermesBrowserSettings');
-  const next = { ...(stored.hermesBrowserSettings || {}), gmailCaptureEnabled: enabled === true };
+  const next = { ...(stored.hermesBrowserSettings || {}), gmailCaptureEnabled: desired };
   await browserApi.storage.local.set({ hermesBrowserSettings: next });
   settings = { ...settings, ...next };
-  if (els.gmailCaptureEnabledInput) els.gmailCaptureEnabledInput.checked = enabled === true;
+  if (els.gmailCaptureEnabledInput) els.gmailCaptureEnabledInput.checked = desired;
+  // Once capture is on it stays on for every thread send until it is
+  // explicitly turned off again, so hide the one-shot consent affordance.
+  if (els.explicitSiteCaptureWrap) els.explicitSiteCaptureWrap.hidden = desired;
+  if (els.explicitSiteCaptureButton) els.explicitSiteCaptureButton.hidden = !desired;
 }
 
 async function getPageContext(tab, options = {}) {
@@ -22897,6 +22903,20 @@ function bindEvents() {
     browserApi.storage.local.set({ hermesBrowserSettings: settings });
     if (els.explicitSiteCaptureWrap) els.explicitSiteCaptureWrap.hidden = true;
     setStatus('ok', 'Gmail capture button hidden', 'Turn it back on any time under Settings → Right-click actions.');
+  });
+  els.gmailCaptureEnabledInput?.addEventListener('change', async () => {
+    // Persist immediately so one enable stays on for every thread send until
+    // it is turned off again here. Doing it live keeps the settings form merge
+    // in sync and stops an unrelated Save from silently re-arming consent.
+    const enabled = els.gmailCaptureEnabledInput.checked === true;
+    await persistGmailCaptureEnabled(enabled).catch(() => undefined);
+    setStatus(
+      enabled ? 'ok' : 'warn',
+      enabled ? 'Gmail thread context on' : 'Gmail thread context off',
+      enabled
+        ? 'The open Gmail thread is shared on every message until you turn this off.'
+        : 'Thread text is no longer shared. Turn it back on to share it again.',
+    );
   });
   if (els.explicitSiteCaptureDismiss) {
     const captureDismissLabel = translateUiText('Hide the Gmail capture button');
