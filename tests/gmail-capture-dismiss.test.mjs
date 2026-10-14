@@ -22,13 +22,13 @@ test('dismissing the capture button persists the opt-out and hides it', () => {
   assert.match(source, /els\.explicitSiteCaptureDismiss\?\.addEventListener\('click'/);
   assert.match(source, /settings = \{ \.\.\.settings, gmailCaptureHidden: true \};/);
   assert.match(source, /browserApi\.storage\.local\.set\(\{ hermesBrowserSettings: settings \}\)/);
-  assert.match(source, /els\.explicitSiteCaptureWrap\.hidden = !action \|\| settings\.gmailCaptureHidden === true;/);
+  assert.match(source, /els\.explicitSiteCaptureWrap\.hidden = !action \|\| settings\.gmailCaptureEnabled === true \|\| settings\.gmailCaptureHidden === true;/);
 });
 
-test('the settings toggle reads and writes the opt-out', () => {
-  assert.match(source, /els\.gmailCaptureEnabledInput\.checked = settings\.gmailCaptureHidden !== true;/);
-  assert.match(source, /gmailCaptureHidden: els\.gmailCaptureEnabledInput \? !els\.gmailCaptureEnabledInput\.checked : settings\.gmailCaptureHidden === true,/);
-  assert.match(source, /gmailCaptureToggleTitle\.textContent = translateUiText\('Gmail capture button'\)/);
+test('the settings toggle reads and writes durable thread sharing, not button visibility', () => {
+  assert.match(source, /els\.gmailCaptureEnabledInput\.checked = settings\.gmailCaptureEnabled === true;/);
+  assert.match(source, /gmailCaptureEnabled: els\.gmailCaptureEnabledInput \? els\.gmailCaptureEnabledInput\.checked : settings\.gmailCaptureEnabled === true,/);
+  assert.match(source, /gmailCaptureToggleTitle\.textContent = translateUiText\('Gmail thread context'\)/);
 });
 
 test('capture wrap styling positions the dismiss control without shrinking the button', () => {
